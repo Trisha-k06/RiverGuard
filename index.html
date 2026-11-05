@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RiverGuard — River Pollution Impact Simulator</title>
+  <meta name="description" content="Educational screening model showing how industrial wastewater discharge and treatment affect downstream river concentration.">
+
+  <!-- Fonts fall back to system fonts if you are offline -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.js"></script>
+</head>
+<body>
+
+  <!-- ============ HEADER ============ -->
+  <header class="masthead">
+    <!-- Decorative contour lines, like a survey map -->
+    <svg class="contours" viewBox="0 0 1400 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <path d="M-20 120C180 60 330 150 560 96S920 30 1120 82s220 22 300-6"/>
+      <path d="M-20 94C190 34 340 122 570 70S930 6 1130 56s220 22 300-6"/>
+      <path d="M-20 68C200 10 350 96 580 44S940-18 1140 30s220 22 300-6"/>
+      <path d="M-20 146C170 86 320 176 550 122S910 56 1110 108s220 22 300-6"/>
+    </svg>
+    <div class="masthead-inner">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+          <path d="M20 3c7 9 12 15 12 22a12 12 0 0 1-24 0C8 18 13 12 20 3Z" fill="#E8F6F5"/>
+          <path d="M11 26c3-3 6-3 9 0s6 3 9 0" fill="none" stroke="#0E7C86" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>
+        <div>
+          <h1>RiverGuard</h1>
+          <p>River Pollution Impact Simulator</p>
+        </div>
+      </div>
+      <p class="course-tag">Environmental Impact Assessment<br><span>Unit 3 · Water: baseline, prediction and assessment of surface water</span></p>
+    </div>
+  </header>
+
+  <p class="notice">
+    <strong>Educational screening model.</strong>
+    It tracks one generic conservative pollutant using illustrative inputs. These are not measured river data, and this is not a water quality certification tool.
+  </p>
+
+  <main class="layout">
+
+    <!-- ============ CONTROLS ============ -->
+    <aside class="panel controls" aria-label="Simulation inputs">
+      <section>
+        <div class="section-head">
+          <h2>Scenario</h2>
+          <span class="scenario-state" id="scenarioState"></span>
+        </div>
+        <div class="presets" id="presets">
+          <button type="button" class="preset" data-preset="low">
+            <span class="preset-name">Low Pollution</span>
+            <span class="preset-note">Large river, small discharge</span>
+          </button>
+          <button type="button" class="preset" data-preset="moderate">
+            <span class="preset-name">Moderate Pollution</span>
+            <span class="preset-note">Medium river, moderate load</span>
+          </button>
+          <button type="button" class="preset" data-preset="high">
+            <span class="preset-name">High Pollution</span>
+            <span class="preset-note">Small river, strong effluent</span>
+          </button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Inputs</h2>
+
+        <div class="slider-row">
+          <div class="slider-top">
+            <label for="riverFlow">River flow <i class="sym">Q<sub>river</sub></i></label>
+            <output id="riverFlowOut" for="riverFlow"></output>
+          </div>
+          <input type="range" id="riverFlow" min="1" max="100" step="1">
+          <div class="slider-scale"><span>1</span><span>100 m³/s</span></div>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-top">
+            <label for="wasteFlow">Wastewater flow <i class="sym">Q<sub>waste</sub></i></label>
+            <output id="wasteFlowOut" for="wasteFlow"></output>
+          </div>
+          <input type="range" id="wasteFlow" min="0.1" max="10" step="0.1">
+          <div class="slider-scale"><span>0.1</span><span>10 m³/s</span></div>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-top">
+            <label for="rawConc">Pollutant in wastewater <i class="sym">C<sub>raw</sub></i></label>
+            <output id="rawConcOut" for="rawConc"></output>
+          </div>
+          <input type="range" id="rawConc" min="10" max="1000" step="10">
+          <div class="slider-scale"><span>10</span><span>1000 mg/L</span></div>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-top">
+            <label for="efficiency">Treatment efficiency <i class="sym">η</i></label>
+            <output id="efficiencyOut" for="efficiency"></output>
+          </div>
+          <input type="range" id="efficiency" min="0" max="100" step="1">
+          <div class="slider-scale"><span>0</span><span>100 %</span></div>
+        </div>
+      </section>
+
+      <section class="baseline-field">
+        <label for="baseline">Upstream baseline <i class="sym">C<sub>up</sub></i></label>
+        <div class="number-input">
+          <input type="number" id="baseline" min="0.1" max="100" step="0.5" inputmode="decimal">
+          <span>mg/L</span>
+        </div>
+        <p class="field-note">Default 5 mg/L. Illustrative; a real EIA would measure it in a baseline survey.</p>
+      </section>
+
+      <button type="button" class="reset" id="resetBtn">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v4.5h4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Reset Simulation
+      </button>
+    </aside>
+
+    <div class="results">
+
+      <!-- ============ RIVER SCENE ============ -->
+      <section class="panel scene-panel" aria-labelledby="sceneTitle">
+        <div class="scene-head">
+          <div>
+            <h2 id="sceneTitle">River scene</h2>
+            <p class="concept-tag">Conceptual illustration, not a scientific plume prediction</p>
+          </div>
+          <div class="segmented" role="group" aria-label="Choose the case shown in the scene">
+            <button type="button" data-view="untreated">Without treatment</button>
+            <button type="button" data-view="treated">With treatment</button>
+          </div>
+        </div>
+
+        <div class="scene-scroll">
+          <svg class="scene" viewBox="0 0 1200 450" role="img" aria-labelledby="sceneDesc">
+            <desc id="sceneDesc">A factory discharges wastewater through a pipe into a river flowing left to right. Water upstream is clean; a pollution plume spreads downstream and changes colour and strength with the calculated concentration.</desc>
+
+            <defs>
+              <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#DDF0F6"/>
+                <stop offset="1" stop-color="#F3FAF8"/>
+              </linearGradient>
+              <linearGradient id="land" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#CFE6C8"/>
+                <stop offset="1" stop-color="#B5D6B4"/>
+              </linearGradient>
+              <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#4FA9CC"/>
+                <stop offset="1" stop-color="#2B7CB5"/>
+              </linearGradient>
+              <!-- Plume colour runs from the outfall to the mixed downstream water; script.js sets the stops -->
+              <linearGradient id="plumeGradient" gradientUnits="userSpaceOnUse" x1="470" y1="0" x2="1080" y2="0">
+                <stop id="plumeStopNear" offset="0"/>
+                <stop id="plumeStopFar" offset="1"/>
+              </linearGradient>
+              <!-- Gives the plume a soft, irregular edge -->
+              <filter id="plumeTexture" filterUnits="userSpaceOnUse" x="440" y="190" width="800" height="230">
+                <feTurbulence type="fractalNoise" baseFrequency="0.012 0.05" numOctaves="2" seed="7"/>
+                <feDisplacementMap in="SourceGraphic" scale="20"/>
+                <feGaussianBlur stdDeviation="2.2"/>
+              </filter>
+              <clipPath id="riverClip"><path id="riverClipPath"/></clipPath>
+
+              <symbol id="tree" viewBox="0 0 40 60" overflow="visible">
+                <rect x="18" y="38" width="4" height="20" fill="#7C6A4F"/>
+                <ellipse cx="20" cy="24" rx="17" ry="23" fill="#6FAE86"/>
+                <ellipse cx="14" cy="20" rx="8" ry="12" fill="#8BC29C"/>
+              </symbol>
+              <symbol id="reed" viewBox="0 0 24 34" overflow="visible">
+                <path d="M6 34C6 22 3 14 2 7M12 34C12 20 12 10 12 2M18 34c0-12 3-18 4-24" fill="none" stroke="#6E9C78" stroke-width="2" stroke-linecap="round"/>
+              </symbol>
+            </defs>
+
+            <!-- Background -->
+            <rect width="1200" height="450" fill="url(#sky)"/>
+            <path d="M0 132C130 78 260 104 390 118s240-52 390-34 270 46 420 8v80H0Z" fill="#C5E0DA"/>
+            <path d="M0 150c200-22 390 8 600-2s400-20 600 2v300H0Z" fill="url(#land)"/>
+
+            <!-- Trees behind the river -->
+            <use href="#tree" x="62" y="120" width="40" height="60"/>
+            <use href="#tree" x="104" y="132" width="32" height="48"/>
+            <use href="#tree" x="640" y="118" width="44" height="66"/>
+            <use href="#tree" x="690" y="134" width="30" height="45"/>
+            <use href="#tree" x="880" y="124" width="40" height="60"/>
+            <use href="#tree" x="1034" y="112" width="48" height="72"/>
+            <use href="#tree" x="1088" y="134" width="32" height="48"/>
+
+            <!-- Factory -->
+            <g>
+              <rect x="186" y="74" width="24" height="84" fill="#6B8797"/>
+              <rect x="186" y="84" width="24" height="7" fill="#E6EEF1"/>
+              <path d="M165 212v-70l45 26v-26l45 26v-26l45 26v-26l45 26v44Z" fill="#54707F"/>
+              <g fill="#CFE3EA">
+                <rect x="180" y="178" width="24" height="16" rx="2"/>
+                <rect x="216" y="178" width="24" height="16" rx="2"/>
+                <rect x="252" y="178" width="24" height="16" rx="2"/>
+                <rect x="288" y="178" width="24" height="16" rx="2"/>
+              </g>
+              <text class="scene-label strong" x="255" y="232" text-anchor="middle">Factory</text>
+            </g>
+
+            <!-- Discharge pipe (drawn before the tanks so it runs behind them) -->
+            <path d="M340 200H470V234" fill="none" stroke="#51626C" stroke-width="11" stroke-linejoin="round"/>
+            <path d="M340 200H470V234" fill="none" stroke="#7D929D" stroke-width="5" stroke-linejoin="round"/>
+
+            <!-- Treatment tanks: fade out when the "without treatment" view is selected -->
+            <g id="tanks" class="tanks">
+              <g id="tankShapes">
+                <rect x="358" y="172" width="42" height="30" fill="#A9BCC5"/>
+                <ellipse cx="379" cy="202" rx="21" ry="7" fill="#A9BCC5"/>
+                <ellipse cx="379" cy="172" rx="21" ry="7" fill="#8AA2AD"/>
+                <ellipse id="tankWaterA" cx="379" cy="172" rx="16" ry="5"/>
+                <rect x="410" y="172" width="42" height="30" fill="#A9BCC5"/>
+                <ellipse cx="431" cy="202" rx="21" ry="7" fill="#A9BCC5"/>
+                <ellipse cx="431" cy="172" rx="21" ry="7" fill="#8AA2AD"/>
+                <ellipse id="tankWaterB" cx="431" cy="172" rx="16" ry="5"/>
+              </g>
+              <text id="tankLabel" class="scene-label" x="405" y="154" text-anchor="middle"></text>
+            </g>
+            <text class="scene-label" x="484" y="226">Discharge pipe</text>
+
+            <!-- River (built in script.js because its width follows river flow) -->
+            <path id="riverBank" fill="none" stroke="#DCCFA6" stroke-width="10" stroke-linejoin="round"/>
+            <path id="river" fill="url(#water)"/>
+
+            <!-- Plume stays inside the river -->
+            <g clip-path="url(#riverClip)">
+              <path id="plume" fill="url(#plumeGradient)" filter="url(#plumeTexture)"/>
+            </g>
+
+            <!-- Moving flow lines (animated in script.js) -->
+            <g id="flowLines" fill="none" stroke="#FFFFFF" stroke-linecap="round"></g>
+
+            <!-- Falling wastewater and pipe mouth -->
+            <line id="discharge" x1="470" y1="236" x2="470" y2="260" stroke-linecap="butt"/>
+            <rect x="462" y="229" width="16" height="8" rx="1.5" fill="#51626C"/>
+
+            <!-- Bank details -->
+            <use href="#reed" x="58" y="372" width="24" height="34"/>
+            <use href="#reed" x="330" y="376" width="20" height="30"/>
+            <use href="#reed" x="548" y="370" width="24" height="34"/>
+            <use href="#reed" x="812" y="374" width="22" height="32"/>
+            <use href="#tree" x="420" y="372" width="36" height="54"/>
+            <use href="#tree" x="660" y="376" width="30" height="45"/>
+
+            <!-- Scene labels -->
+            <text class="scene-label strong" x="30" y="228">Upstream: clean water</text>
+            <text class="scene-label strong" x="770" y="226">Downstream pollution plume</text>
+            <text class="flow-label" id="flowArrow" x="26" y="306">Flow →</text>
+
+            <!-- Live concentration callouts -->
+            <line class="pin" id="pinUp" x1="170" x2="170" y1="340" y2="382"/>
+            <circle class="pin-dot" id="pinUpDot" cx="170" cy="340" r="5"/>
+            <g>
+              <rect class="callout" x="92" y="382" width="210" height="56" rx="6"/>
+              <text class="callout-label" x="106" y="403">Upstream baseline</text>
+              <text class="callout-value" id="sceneUp" x="106" y="427"></text>
+            </g>
+
+            <line class="pin" id="pinDown" x1="1050" x2="1050" y1="340" y2="382"/>
+            <circle class="pin-dot" id="pinDownDot" cx="1050" cy="340" r="5"/>
+            <g>
+              <rect class="callout" x="938" y="382" width="244" height="56" rx="6"/>
+              <text class="callout-label" id="sceneDownLabel" x="952" y="403"></text>
+              <text class="callout-value" id="sceneDown" x="952" y="427"></text>
+            </g>
+          </svg>
+        </div>
+        <p class="scene-note">The figures use complete mixing, so they describe the river once the discharge is fully blended. The drawn plume is only a visual aid for that result.</p>
+      </section>
+
+      <!-- ============ HEADLINE READOUTS ============ -->
+      <section class="panel readouts" aria-label="Calculated concentrations">
+        <div class="readout">
+          <span class="readout-label">Upstream baseline</span>
+          <span class="readout-value"><b id="roUp"></b> mg/L</span>
+          <span class="readout-sub">Before the discharge</span>
+        </div>
+        <div class="readout">
+          <span class="readout-label">Downstream, untreated</span>
+          <span class="readout-value"><b id="roUntreated"></b> mg/L</span>
+          <span class="band" id="roUntreatedBand"></span>
+        </div>
+        <div class="readout">
+          <span class="readout-label">Downstream, treated</span>
+          <span class="readout-value"><b id="roTreated"></b> mg/L</span>
+          <span class="band" id="roTreatedBand"></span>
+        </div>
+        <div class="readout">
+          <span class="readout-label">Reduction from treatment</span>
+          <span class="readout-value"><b id="roReduction"></b> %</span>
+          <span class="readout-sub" id="roReductionSub"></span>
+        </div>
+      </section>
+
+      <div class="two-up">
+        <!-- ============ CHART + COMPARISON ============ -->
+        <section class="panel" aria-labelledby="chartTitle">
+          <h2 id="chartTitle">Concentration comparison</h2>
+          <p class="panel-sub">Pollutant concentration in mg/L. The axis rescales to fit the results.</p>
+          <div class="chart-box">
+            <canvas id="concChart" role="img" aria-label="Bar chart of upstream, untreated downstream and treated downstream concentrations. The same values appear in the table below."></canvas>
+            <p class="chart-fallback" id="chartFallback" hidden>The chart library could not load (it needs an internet connection). All values are still in the table below.</p>
+          </div>
+          <table class="compare">
+            <thead>
+              <tr><th scope="col">Location</th><th scope="col" class="num">mg/L</th><th scope="col" class="num">× baseline</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row"><span class="swatch" style="--c:#2B7CB5"></span>Upstream</th>
+                <td class="num" id="tUp"></td><td class="num">1.00</td>
+              </tr>
+              <tr>
+                <th scope="row"><span class="swatch" style="--c:#B5702A"></span>Downstream, untreated</th>
+                <td class="num" id="tUntreated"></td><td class="num" id="tUntreatedX"></td>
+              </tr>
+              <tr>
+                <th scope="row"><span class="swatch" style="--c:#12907F"></span>Downstream, treated</th>
+                <td class="num" id="tTreated"></td><td class="num" id="tTreatedX"></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ IMPACT SUMMARY ============ -->
+        <section class="panel summary" aria-labelledby="summaryTitle">
+          <h2 id="summaryTitle">Environmental impact summary</h2>
+          <h3 id="verdict" aria-live="polite"></h3>
+          <p class="helps" id="helps"></p>
+          <div class="summary-body" id="summaryBody"></div>
+
+          <div class="bands-key">
+            <h4>Illustrative impact bands</h4>
+            <p>Teaching aid only, <strong>not a regulatory standard</strong>. Bands compare the downstream result with this simulation's own upstream baseline.</p>
+            <ul id="bandsKey"></ul>
+          </div>
+        </section>
+      </div>
+
+      <!-- ============ WORKED CALCULATION ============ -->
+      <section class="panel" aria-labelledby="workedTitle">
+        <h2 id="workedTitle">Worked calculation</h2>
+        <p class="panel-sub">The current slider values, substituted into the mass balance.</p>
+        <div class="worked">
+          <div>
+            <h3>Untreated (η = 0%)</h3>
+            <p class="eq" id="workUntreatedEff"></p>
+            <p class="eq" id="workUntreated"></p>
+          </div>
+          <div>
+            <h3 id="workTreatedTitle"></h3>
+            <p class="eq" id="workTreatedEff"></p>
+            <p class="eq" id="workTreated"></p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ METHODOLOGY ============ -->
+    <section class="panel methodology" aria-labelledby="methodTitle">
+      <h2 id="methodTitle">Methodology</h2>
+      <p class="method-lead">Pollutant mass entering the mixing point must equal pollutant mass leaving it. RiverGuard adds the load carried by the river to the load carried by the wastewater, then divides by the combined flow.</p>
+
+      <div class="formula-block">
+        <p class="formula">C<sub>effluent</sub> = C<sub>raw</sub> × (1 − η / 100)</p>
+        <p class="formula">C<sub>downstream</sub> = (Q<sub>river</sub> × C<sub>upstream</sub> + Q<sub>waste</sub> × C<sub>effluent</sub>) / (Q<sub>river</sub> + Q<sub>waste</sub>)</p>
+        <p class="units">Units check: flow (m³/s) × concentration (mg/L) gives a pollutant load in g/s. Dividing by total flow returns a concentration in mg/L.</p>
+      </div>
+
+      <div class="method-grid">
+        <div>
+          <h3>Symbols</h3>
+          <dl class="symbols">
+            <div><dt>Q<sub>river</sub></dt><dd>River flow upstream of the outfall (m³/s)</dd></div>
+            <div><dt>Q<sub>waste</sub></dt><dd>Wastewater discharge flow (m³/s)</dd></div>
+            <div><dt>C<sub>upstream</sub></dt><dd>Baseline concentration in the river (mg/L)</dd></div>
+            <div><dt>C<sub>raw</sub></dt><dd>Pollutant in wastewater before treatment (mg/L)</dd></div>
+            <div><dt>η</dt><dd>Treatment efficiency, the percent of pollutant removed</dd></div>
+            <div><dt>C<sub>effluent</sub></dt><dd>Pollutant in wastewater after treatment (mg/L)</dd></div>
+          </dl>
+        </div>
+        <div>
+          <h3>Assumptions</h3>
+          <ul>
+            <li><strong>Steady flow:</strong> river flow, discharge and concentrations stay constant over time.</li>
+            <li><strong>Complete mixing:</strong> the discharge blends instantly and evenly across the whole river.</li>
+            <li><strong>No decay:</strong> the pollutant is conservative, so it does not settle, degrade or react.</li>
+            <li><strong>One discharge:</strong> there is a single outfall, with no other inflows or withdrawals.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Limitations</h3>
+          <ul>
+            <li>It cannot show near-field effects. Close to a real outfall, concentrations can be far higher than the mixed value.</li>
+            <li>It ignores seasonal low flows, shock loads and changes in treatment performance.</li>
+            <li>It does not apply to pollutants that react or decay, such as BOD, or to dissolved oxygen, which need other models.</li>
+            <li>Results are for learning and early screening. They do not assess legal compliance or ecological harm.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="eia-steps">
+        <h3>Where this fits in an EIA</h3>
+        <ol>
+          <li><b>Set the baseline</b><span>Establish existing river quality: C<sub>upstream</sub>.</span></li>
+          <li><b>Predict the impact</b><span>Estimate the change with no mitigation: the untreated result.</span></li>
+          <li><b>Test mitigation</b><span>Apply treatment and recalculate: the treated result.</span></li>
+          <li><b>Assess significance</b><span>Compare with the baseline and applicable standards. Real projects need field data and regulatory guidance.</span></li>
+        </ol>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    RiverGuard is a course mini-project for learning only. All values are illustrative.
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
